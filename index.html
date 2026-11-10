@@ -1,0 +1,575 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Учёт товаров</title>
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+:root { --b: 42px; --q: 40px; }
+@media (max-width: 359px) { :root { --b: 36px; --q: 34px; } }
+
+body {
+margin: 0;
+padding: 12px 6px calc(24px + env(safe-area-inset-bottom));
+background: #f2f2f7;
+color: #1c1c1e;
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+touch-action: manipulation;
+}
+.app { max-width: 520px; margin: 0 auto; }
+h1 { margin: 4px 6px 12px; font-size: 22px; }
+h2 { margin: 0 0 8px; font-size: 17px; }
+
+.card {
+background: #fff;
+border-radius: 16px;
+padding: 8px 6px;
+margin-bottom: 14px;
+box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+
+/* Колонки: Цена | Количество (− число) | Добавил | + | Сумма | ✕ */
+.grid {
+display: grid;
+grid-template-columns:
+minmax(0, 1.1fr)
+calc(var(--b) + var(--q) + 2px)
+minmax(0, 1fr)
+var(--b)
+minmax(0, 1.5fr)
+var(--b);
+column-gap: 4px;
+align-items: center;
+}
+.head {
+padding: 2px 0 6px;
+font-size: 11px;
+font-weight: 600;
+color: #8e8e93;
+text-align: center;
+white-space: nowrap;
+}
+.item { padding: 4px 0; border-top: 1px solid #f0f0f5; }
+#rows:empty::before {
+content: "Нет строк. Нажмите «Добавить строку».";
+display: block;
+padding: 14px 0;
+text-align: center;
+color: #8e8e93;
+font-size: 14px;
+}
+
+input {
+font-family: inherit;
+font-size: 16px;
+font-weight: 600;
+color: inherit;
+text-align: center;
+background: #fff;
+border: 1px solid #d1d1d6;
+border-radius: 10px;
+height: var(--b);
+min-width: 0;
+padding: 0 2px;
+}
+input:focus {
+outline: none;
+border-color: #0a84ff;
+box-shadow: 0 0 0 3px rgba(10, 132, 255, .2);
+}
+.price { width: 100%; }
+.qty { display: flex; align-items: center; gap: 2px; }
+.q { width: var(--q); flex: none; }
+
+/* Ячейки только для чтения: «Добавил» и «Сумма» */
+.cell {
+display: flex;
+align-items: center;
+justify-content: center;
+height: var(--b);
+min-width: 0;
+padding: 0 3px;
+overflow: hidden;
+white-space: nowrap;
+font-weight: 700;
+font-variant-numeric: tabular-nums;
+background: #f2f2f7;
+border: 1px solid #e5e5ea;
+border-radius: 10px;
+}
+.added { font-size: 16px; color: #aeaeb2; }
+.added.pos { color: #1f9d3a; }
+.added.neg { color: #e07b00; }
+.sum { font-size: 15px; }
+
+/* Квадратные кнопки: − + ✕ */
+button { font-family: inherit; cursor: pointer; }
+.step {
+width: var(--b);
+height: var(--b);
+flex: none;
+padding: 0;
+border: none;
+border-radius: 12px;
+font-size: 28px;
+font-weight: 600;
+line-height: 1;
+color: #fff;
+touch-action: none;
+user-select: none;
+-webkit-user-select: none;
+-webkit-touch-callout: none;
+}
+.step:active { filter: brightness(.88); transform: scale(.96); }
+.minus { background: #ff9500; }
+.plus { background: #34c759; }
+.del { background: #ff3b30; font-size: 20px; touch-action: manipulation; }
+
+.add {
+width: 100%;
+height: 48px;
+margin-top: 10px;
+border: none;
+border-radius: 12px;
+background: #0a84ff;
+color: #fff;
+font-size: 17px;
+font-weight: 600;
+}
+.add:active { filter: brightness(.9); }
+
+/* Итого */
+.total { background: #1c1c1e; color: #fff; padding: 14px 16px; }
+.total h2 { color: #aeaeb2; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+.stat + .stat { margin-top: 12px; }
+.stat span { display: block; font-size: 14px; color: #aeaeb2; }
+.stat b {
+display: block;
+margin-top: 2px;
+font-size: 36px;
+line-height: 1.1;
+font-variant-numeric: tabular-nums;
+word-break: break-word;
+}
+#totalSum { color: #30d158; }
+
+/* История */
+.hist { padding: 12px 16px; }
+.log { list-style: none; margin: 0; padding: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.log li { padding: 8px 0; border-top: 1px solid #f0f0f5; }
+.log:empty::before { content: "Пока пусто"; color: #8e8e93; }
+</style>
+</head>
+<body>
+<div class="app">
+<h1>Учёт товаров</h1>
+
+<section class="card">
+<div class="grid head">
+<span>Цена, ₽</span>
+<span>Количество</span>
+<span>Добавил</span>
+<span></span>
+<span>Сумма, ₽</span>
+<span></span>
+</div>
+<div id="rows"></div>
+<button type="button" id="addRow" class="add">+ Добавить строку</button>
+</section>
+
+<section class="card total">
+<h2>Итого</h2>
+<div class="stat">
+<span>Общее количество вещей</span>
+<b id="totalQty">0 шт.</b>
+</div>
+<div class="stat">
+<span>Общая сумма</span>
+<b id="totalSum">0 ₽</b>
+</div>
+</section>
+
+<section class="card hist">
+<div class="history-head">
+<h2>История добавлений</h2>
+<button type="button" id="undoLast" class="undo" disabled>Отменить последнее</button>
+</div>
+<ul id="history" class="log"></ul>
+</section>
+</div>
+
+<script>
+(() => {
+const rowsEl = document.getElementById('rows');
+const historyEl = document.getElementById('history');
+const totalQtyEl = document.getElementById('totalQty');
+const totalSumEl = document.getElementById('totalSum');
+const undoBtn = document.getElementById('undoLast');
+
+const MAX_QTY = 999999;
+const MAX_LOG = 300;
+const STORAGE_KEY = 'product-counter-v2';
+
+let items = [];
+let nextId = 1;
+let hold = null;
+let lastPressed = null;
+let undoStack = [];
+
+const parsePrice = (s) => {
+const raw = String(s).trim().replace(',', '.');
+if (!raw) return null;
+const n = Number(raw);
+return Number.isFinite(n) && n >= 0 ? n : null;
+};
+const fmt = (n) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+const pad = (n) => String(n).padStart(2, '0');
+const timeStr = () => {
+const d = new Date();
+return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+};
+
+function cleanPrice(v) {
+v = v.replace(/[^\d.,]/g, '').replace('.', ',');
+const i = v.indexOf(',');
+if (i !== -1) {
+v = v.slice(0, i + 1) + v.slice(i + 1).replace(/[.,]/g, '').slice(0, 2);
+}
+return v.slice(0, 10);
+}
+
+function fit(el, text, base, cap) {
+const n = text.length;
+el.style.fontSize = (n <= cap ? base : Math.max(8, Math.floor(base * cap / n))) + 'px';
+}
+
+function itemSum(it) {
+const p = parsePrice(it.price);
+return p === null ? 0 : Math.round(p * it.qty * 100) / 100;
+}
+
+function renderAdded(it) {
+const a = it.added;
+let text = '—';
+let cls = 'cell added';
+if (a !== null) {
+text = (a > 0 ? '+' : a < 0 ? '−' : '') + Math.abs(a);
+cls += a > 0 ? ' pos' : a < 0 ? ' neg' : '';
+}
+it.addedEl.className = cls;
+it.addedEl.textContent = text;
+fit(it.addedEl, text, 16, 4);
+}
+
+function renderSum(it) {
+const text = fmt(itemSum(it));
+it.sumEl.textContent = text;
+fit(it.sumEl, text, 15, 7);
+}
+
+function updateTotals() {
+let qty = 0;
+let sum = 0;
+items.forEach((it) => {
+qty += it.qty;
+sum += itemSum(it);
+});
+totalQtyEl.textContent = fmt(qty) + ' шт.';
+totalSumEl.textContent = fmt(Math.round(sum * 100) / 100) + ' ₽';
+}
+
+function saveState() {
+try {
+const state = {
+nextId,
+items: items.map((it) => ({
+id: it.id, price: it.price, qty: it.qty, added: it.added
+})),
+history: Array.from(historyEl.children).map((li) => li.textContent),
+undoStack
+};
+localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+} catch (err) {
+console.warn('Не удалось сохранить данные:', err);
+}
+}
+
+function changed(it) {
+renderSum(it);
+updateTotals();
+saveState();
+}
+
+function setQty(it, n) {
+it.qty = Math.min(MAX_QTY, Math.max(0, n));
+it.qInput.value = it.qty;
+changed(it);
+}
+
+function beginPress(it) {
+if (lastPressed !== it) {
+it.added = 0;
+lastPressed = it;
+renderAdded(it);
+saveState();
+}
+}
+
+function step(it, dir) {
+const before = it.qty;
+setQty(it, before + dir);
+const d = it.qty - before;
+if (d !== 0) {
+it.added += d;
+renderAdded(it);
+saveState();
+}
+}
+
+function updateUndoButton() {
+undoBtn.disabled = undoStack.length === 0;
+}
+
+function addLog(it, delta, previousQty) {
+if (!delta) return;
+const p = parsePrice(it.price);
+const priceText = p === null ? 'Цена не указана' : 'Цена ' + fmt(p) + ' ₽';
+const sign = delta > 0 ? '+' : '−';
+const li = document.createElement('li');
+li.textContent =
+'[' + timeStr() + '] ' + priceText + ': ' + sign + Math.abs(delta) +
+' шт. (Стало: ' + it.qty + ')';
+historyEl.insertBefore(li, historyEl.firstChild);
+undoStack.push({ itemId: it.id, previousQty });
+while (historyEl.children.length > MAX_LOG) {
+historyEl.removeChild(historyEl.lastChild);
+undoStack.shift();
+}
+updateUndoButton();
+saveState();
+}
+
+function undoLast() {
+const action = undoStack.pop();
+if (!action) return;
+const it = items.find((x) => x.id === action.itemId);
+if (it) {
+it.qty = Math.max(0, Math.min(MAX_QTY, action.previousQty));
+it.qInput.value = it.qty;
+it.added = null;
+renderAdded(it);
+changed(it);
+}
+if (historyEl.firstElementChild) historyEl.removeChild(historyEl.firstElementChild);
+updateUndoButton();
+saveState();
+}
+
+function compare(a, b) {
+const pa = parsePrice(a.price);
+const pb = parsePrice(b.price);
+if (pa === null && pb === null) return a.id - b.id;
+if (pa === null) return 1;
+if (pb === null) return -1;
+return (pa - pb) || (a.id - b.id);
+}
+
+function sortRows() {
+if (hold) return;
+const sorted = items.slice().sort(compare);
+if (sorted.every((it, i) => it === items[i])) return;
+items = sorted;
+sorted.forEach((it) => rowsEl.appendChild(it.row));
+saveState();
+}
+
+function maybeSort() {
+const a = document.activeElement;
+if (a && a.tagName === 'INPUT' && rowsEl.contains(a)) return;
+sortRows();
+}
+
+rowsEl.addEventListener('focusout', () => setTimeout(maybeSort, 0));
+
+function tick() {
+if (!hold) return;
+step(hold.it, hold.dir);
+hold.count++;
+const delay = hold.count > 30 ? 30 : hold.count > 12 ? 60 : 110;
+hold.timer = setTimeout(tick, delay);
+}
+
+function startHold(it, dir, e) {
+if (hold) return;
+if (e.pointerType === 'mouse' && e.button !== 0) return;
+hold = { it, dir, start: it.qty, count: 0, pointerId: e.pointerId, timer: null };
+beginPress(it);
+step(it, dir);
+hold.timer = setTimeout(tick, 400);
+}
+
+function endHold(e) {
+if (!hold) return;
+if (e && e.pointerId !== undefined && e.pointerId !== hold.pointerId) return;
+clearTimeout(hold.timer);
+const finished = hold;
+hold = null;
+const delta = finished.it.qty - finished.start;
+if (delta !== 0) addLog(finished.it, delta, finished.start);
+maybeSort();
+}
+
+window.addEventListener('pointerup', endHold);
+window.addEventListener('pointercancel', endHold);
+window.addEventListener('blur', () => endHold());
+
+const blurOnEnter = (e) => {
+if (e.key === 'Enter') {
+e.preventDefault();
+e.target.blur();
+}
+};
+
+function addRow(focus, saved) {
+const row = document.createElement('div');
+row.className = 'grid item';
+row.innerHTML =
+'<input class="price" type="text" inputmode="decimal" autocomplete="off" placeholder="Цена" aria-label="Цена, ₽">' +
+'<div class="qty">' +
+'<button type="button" class="step minus" aria-label="Уменьшить">−</button>' +
+'<input class="q" type="text" inputmode="numeric" autocomplete="off" value="0" aria-label="Количество">' +
+'</div>' +
+'<div class="cell added" aria-label="Добавил за серию">—</div>' +
+'<button type="button" class="step plus" aria-label="Увеличить">+</button>' +
+'<div class="cell sum" aria-label="Сумма, ₽">0</div>' +
+'<button type="button" class="step del" aria-label="Удалить строку">✕</button>';
+
+const it = {
+id: saved ? saved.id : nextId++,
+price: saved ? saved.price : '',
+qty: saved ? saved.qty : 0,
+added: saved ? saved.added : null,
+row,
+priceInput: row.querySelector('.price'),
+qInput: row.querySelector('.q'),
+addedEl: row.querySelector('.added'),
+sumEl: row.querySelector('.sum')
+};
+
+it.priceInput.value = it.price;
+it.qInput.value = it.qty;
+renderAdded(it);
+renderSum(it);
+
+it.priceInput.addEventListener('input', () => {
+const v = cleanPrice(it.priceInput.value);
+if (v !== it.priceInput.value) it.priceInput.value = v;
+it.price = v;
+changed(it);
+});
+it.priceInput.addEventListener('keydown', blurOnEnter);
+
+let qtyAtFocus = it.qty;
+it.qInput.addEventListener('focus', () => {
+qtyAtFocus = it.qty;
+if (it.qty === 0) it.qInput.value = '';
+});
+it.qInput.addEventListener('input', () => {
+const v = it.qInput.value.replace(/\D/g, '').slice(0, 6);
+if (v !== it.qInput.value) it.qInput.value = v;
+it.qty = Math.min(MAX_QTY, parseInt(v, 10) || 0);
+if (it.qty > MAX_QTY) it.qInput.value = it.qty;
+changed(it);
+});
+it.qInput.addEventListener('blur', () => {
+it.qInput.value = it.qty;
+const delta = it.qty - qtyAtFocus;
+if (delta !== 0) addLog(it, delta, qtyAtFocus);
+});
+it.qInput.addEventListener('keydown', blurOnEnter);
+
+row.querySelector('.minus').addEventListener('pointerdown', (e) => startHold(it, -1, e));
+row.querySelector('.plus').addEventListener('pointerdown', (e) => startHold(it, 1, e));
+row.querySelectorAll('.minus, .plus').forEach((b) => {
+b.addEventListener('contextmenu', (e) => e.preventDefault());
+});
+
+const delBtn = row.querySelector('.del');
+let deleteArmed = false;
+let deleteTimer = null;
+delBtn.addEventListener('click', () => {
+if (!deleteArmed) {
+deleteArmed = true;
+delBtn.classList.add('armed');
+delBtn.textContent = 'Да?';
+clearTimeout(deleteTimer);
+deleteTimer = setTimeout(() => {
+deleteArmed = false;
+delBtn.classList.remove('armed');
+delBtn.textContent = '✕';
+}, 2500);
+return;
+}
+clearTimeout(deleteTimer);
+items = items.filter((x) => x !== it);
+if (lastPressed === it) lastPressed = null;
+if (hold && hold.it === it) endHold();
+row.remove();
+updateTotals();
+saveState();
+});
+
+items.push(it);
+rowsEl.appendChild(row);
+updateTotals();
+if (focus) it.priceInput.focus();
+}
+
+function restoreState() {
+try {
+const raw = localStorage.getItem(STORAGE_KEY);
+if (!raw) return false;
+const state = JSON.parse(raw);
+if (!state || !Array.isArray(state.items)) return false;
+nextId = Number.isInteger(state.nextId) && state.nextId > 0 ? state.nextId : 1;
+undoStack = Array.isArray(state.undoStack) ? state.undoStack : [];
+state.items.forEach((saved) => {
+if (!saved || !Number.isInteger(saved.id)) return;
+const qty = Math.max(0, Math.min(MAX_QTY, Number(saved.qty) || 0));
+addRow(false, {
+id: saved.id,
+price: cleanPrice(String(saved.price || '')),
+qty,
+added: Number.isFinite(saved.added) ? saved.added : null
+});
+});
+if (Array.isArray(state.history)) {
+state.history.slice(0, MAX_LOG).forEach((entry) => {
+const li = document.createElement('li');
+li.textContent = String(entry);
+historyEl.appendChild(li);
+});
+}
+updateUndoButton();
+return items.length > 0 || historyEl.children.length > 0;
+} catch (err) {
+console.warn('Не удалось восстановить данные:', err);
+return false;
+}
+}
+
+document.getElementById('addRow').addEventListener('click', () => {
+addRow(true);
+saveState();
+});
+undoBtn.addEventListener('click', undoLast);
+
+if (!restoreState()) addRow(false);
+updateTotals();
+saveState();
+})();
+</script>
+</body>
+</html>
