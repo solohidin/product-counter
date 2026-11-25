@@ -6,572 +6,534 @@
 <title>Учёт товаров</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
-<meta name="theme-color" content="#34c759">
+<meta name="theme-color" content="#f2f2f7">
 <style>
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { -webkit-text-size-adjust: 100%; }
-:root { --b: 42px; --q: 40px; }
+:root { --b: 42px; --q: 40px; --blue: #0a84ff; }
 @media (max-width: 359px) { :root { --b: 36px; --q: 34px; } }
-
 body {
-margin: 0;
-padding: 12px 6px calc(24px + env(safe-area-inset-bottom));
-background: #f2f2f7;
-color: #1c1c1e;
-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-touch-action: manipulation;
+  margin: 0;
+  padding: calc(8px + env(safe-area-inset-top)) 6px calc(24px + env(safe-area-inset-bottom));
+  background: #f2f2f7; color: #1c1c1e;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  touch-action: manipulation;
 }
 .app { max-width: 520px; margin: 0 auto; }
-h1 { margin: 4px 6px 12px; font-size: 22px; }
+.go { animation: in .22s ease; }
+@keyframes in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .go { animation: none; } }
+
+/* Шапка */
+.bar { display: flex; justify-content: space-between; align-items: center; height: 44px; padding: 0 8px; }
+.l { display: flex; align-items: center; gap: 20px; }
+.ic, .tx { background: none; border: none; padding: 0; color: var(--blue); font-family: inherit; cursor: pointer; }
+.ic { font-size: 36px; font-weight: 300; line-height: 1; }
+.tx { font-size: 17px; }
+.tx.done { font-weight: 600; }
+h1 { margin: 6px 10px 4px; font-size: 34px; font-weight: 700; word-break: break-word; }
 h2 { margin: 0 0 8px; font-size: 17px; }
+.sub { margin: 0 10px 12px; font-size: 14px; color: #8e8e93; }
 
-.card {
-background: #fff;
-border-radius: 16px;
-padding: 8px 6px;
-margin-bottom: 14px;
-box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
-}
+.card { background: #fff; border-radius: 14px; padding: 8px 6px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
 
-/* Колонки: Цена | Количество (− число) | Добавил | + | Сумма | ✕ */
+/* Списки магазинов и отделов */
+.list { padding: 0 0 0 16px; overflow: hidden; }
+.list:empty { padding: 0; }
+.list:empty::before { content: "Пока пусто. Нажмите «+», чтобы добавить."; display: block; padding: 16px; text-align: center; color: #8e8e93; font-size: 14px; }
+.li { position: relative; display: flex; align-items: center; gap: 8px; min-height: 52px; padding-right: 12px; user-select: none; -webkit-user-select: none; cursor: pointer; }
+.li + .li::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: #e5e5ea; }
+.li:active { background: #f2f2f7; }
+.nm { flex: 1; min-width: 0; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nm input { width: 100%; height: 36px; text-align: left; font-size: 17px; font-weight: 400; }
+.am { color: #8e8e93; font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chev { color: #c7c7cc; font-size: 26px; line-height: 1; }
+.editing .li { touch-action: none; cursor: grab; }
+.li.drag { background: #e9f2ff; box-shadow: 0 2px 10px rgba(0, 0, 0, .2); z-index: 2; }
+.circle { flex: none; width: 28px; height: 28px; padding: 0; border: none; border-radius: 50%; background: #ff3b30; color: #fff; font-size: 20px; font-weight: 700; line-height: 1; cursor: pointer; }
+.circle.ok { background: #34c759; }
+
+/* Счётчик отдела: Цена | Количество (− число) | Добавил | + | Сумма | ✕ */
 .grid {
-display: grid;
-grid-template-columns:
-minmax(0, 1.1fr)
-calc(var(--b) + var(--q) + 2px)
-minmax(0, 1fr)
-var(--b)
-minmax(0, 1.5fr)
-var(--b);
-column-gap: 4px;
-align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) calc(var(--b) + var(--q) + 2px) minmax(0, 1fr) var(--b) minmax(0, 1.5fr) var(--b);
+  column-gap: 4px; align-items: center;
 }
-.head {
-padding: 2px 0 6px;
-font-size: 11px;
-font-weight: 600;
-color: #8e8e93;
-text-align: center;
-white-space: nowrap;
-}
+.head { padding: 2px 0 6px; font-size: 11px; font-weight: 600; color: #8e8e93; text-align: center; white-space: nowrap; }
 .item { padding: 4px 0; border-top: 1px solid #f0f0f5; }
-#rows:empty::before {
-content: "Нет строк. Нажмите «Добавить строку».";
-display: block;
-padding: 14px 0;
-text-align: center;
-color: #8e8e93;
-font-size: 14px;
-}
-
+#rows:empty::before { content: "Нет строк. Нажмите «Добавить строку»."; display: block; padding: 14px 0; text-align: center; color: #8e8e93; font-size: 14px; }
 input {
-font-family: inherit;
-font-size: 16px;
-font-weight: 600;
-color: inherit;
-text-align: center;
-background: #fff;
-border: 1px solid #d1d1d6;
-border-radius: 10px;
-height: var(--b);
-min-width: 0;
-padding: 0 2px;
+  font-family: inherit; font-size: 16px; font-weight: 600; color: inherit; text-align: center;
+  background: #fff; border: 1px solid #d1d1d6; border-radius: 10px; height: var(--b); min-width: 0; padding: 0 2px;
 }
-input:focus {
-outline: none;
-border-color: #0a84ff;
-box-shadow: 0 0 0 3px rgba(10, 132, 255, .2);
-}
+input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(10, 132, 255, .2); }
 .price { width: 100%; }
 .qty { display: flex; align-items: center; gap: 2px; }
 .q { width: var(--q); flex: none; }
-
-/* Ячейки только для чтения: «Добавил» и «Сумма» */
 .cell {
-display: flex;
-align-items: center;
-justify-content: center;
-height: var(--b);
-min-width: 0;
-padding: 0 3px;
-overflow: hidden;
-white-space: nowrap;
-font-weight: 700;
-font-variant-numeric: tabular-nums;
-background: #f2f2f7;
-border: 1px solid #e5e5ea;
-border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; height: var(--b); min-width: 0; padding: 0 3px;
+  overflow: hidden; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: #f2f2f7; border: 1px solid #e5e5ea; border-radius: 10px;
 }
 .added { font-size: 16px; color: #aeaeb2; }
 .added.pos { color: #1f9d3a; }
 .added.neg { color: #e07b00; }
 .sum { font-size: 15px; }
-
-/* Квадратные кнопки: − + ✕ */
 button { font-family: inherit; cursor: pointer; }
 .step {
-width: var(--b);
-height: var(--b);
-flex: none;
-padding: 0;
-border: none;
-border-radius: 12px;
-font-size: 28px;
-font-weight: 600;
-line-height: 1;
-color: #fff;
-touch-action: none;
-user-select: none;
--webkit-user-select: none;
--webkit-touch-callout: none;
+  width: var(--b); height: var(--b); flex: none; padding: 0; border: none; border-radius: 12px;
+  font-size: 28px; font-weight: 600; line-height: 1; color: #fff;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .step:active { filter: brightness(.88); transform: scale(.96); }
 .minus { background: #ff9500; }
 .plus { background: #34c759; }
 .del { background: #ff3b30; font-size: 20px; touch-action: manipulation; }
-
-.add {
-width: 100%;
-height: 48px;
-margin-top: 10px;
-border: none;
-border-radius: 12px;
-background: #0a84ff;
-color: #fff;
-font-size: 17px;
-font-weight: 600;
-}
+.del.armed { background: #1c1c1e; font-size: 13px; }
+.add { width: 100%; height: 48px; margin-top: 10px; border: none; border-radius: 12px; background: var(--blue); color: #fff; font-size: 17px; font-weight: 600; }
 .add:active { filter: brightness(.9); }
 
-/* Итого */
 .total { background: #1c1c1e; color: #fff; padding: 14px 16px; }
 .total h2 { color: #aeaeb2; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
 .stat + .stat { margin-top: 12px; }
 .stat span { display: block; font-size: 14px; color: #aeaeb2; }
-.stat b {
-display: block;
-margin-top: 2px;
-font-size: 36px;
-line-height: 1.1;
-font-variant-numeric: tabular-nums;
-word-break: break-word;
-}
-#totalSum { color: #30d158; }
+.stat b { display: block; margin-top: 2px; font-size: 36px; line-height: 1.1; font-variant-numeric: tabular-nums; word-break: break-word; }
+#ts { color: #30d158; }
 
-/* История */
 .hist { padding: 12px 16px; }
+.hh { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.hh h2 { margin: 0; }
+.undo { border: none; background: none; padding: 6px 0; color: var(--blue); font-size: 15px; }
+.undo:disabled { color: #c7c7cc; cursor: default; }
 .log { list-style: none; margin: 0; padding: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 .log li { padding: 8px 0; border-top: 1px solid #f0f0f5; }
 .log:empty::before { content: "Пока пусто"; color: #8e8e93; }
 </style>
 </head>
 <body>
-<div class="app">
-<h1>Учёт товаров</h1>
-
-<section class="card">
-<div class="grid head">
-<span>Цена, ₽</span>
-<span>Количество</span>
-<span>Добавил</span>
-<span></span>
-<span>Сумма, ₽</span>
-<span></span>
-</div>
-<div id="rows"></div>
-<button type="button" id="addRow" class="add">+ Добавить строку</button>
-</section>
-
-<section class="card total">
-<h2>Итого</h2>
-<div class="stat">
-<span>Общее количество вещей</span>
-<b id="totalQty">0 шт.</b>
-</div>
-<div class="stat">
-<span>Общая сумма</span>
-<b id="totalSum">0 ₽</b>
-</div>
-</section>
-
-<section class="card hist">
-<div class="history-head">
-<h2>История добавлений</h2>
-<button type="button" id="undoLast" class="undo" disabled>Отменить последнее</button>
-</div>
-<ul id="history" class="log"></ul>
-</section>
-</div>
+<div class="app" id="app"></div>
 
 <script>
 (() => {
-const rowsEl = document.getElementById('rows');
-const historyEl = document.getElementById('history');
-const totalQtyEl = document.getElementById('totalQty');
-const totalSumEl = document.getElementById('totalSum');
-const undoBtn = document.getElementById('undoLast');
+const KEY = 'product-counter-v3', OLD = 'product-counter-v2';
+const MAX_QTY = 999999, MAX_LOG = 300;
+const app = document.getElementById('app');
+const $ = (s) => document.querySelector(s);
 
-const MAX_QTY = 999999;
-const MAX_LOG = 300;
-const STORAGE_KEY = 'product-counter-v2';
-
-let items = [];
-let nextId = 1;
-let hold = null;
-let lastPressed = null;
-let undoStack = [];
-
-const parsePrice = (s) => {
-const raw = String(s).trim().replace(',', '.');
-if (!raw) return null;
-const n = Number(raw);
-return Number.isFinite(n) && n >= 0 ? n : null;
-};
+/* ---------- Утилиты ---------- */
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const rnd = (n) => Math.round(n * 100) / 100;
 const fmt = (n) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 const pad = (n) => String(n).padStart(2, '0');
-const timeStr = () => {
-const d = new Date();
-return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+const timeStr = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+const parsePrice = (s) => {
+  const raw = String(s).trim().replace(',', '.');
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 };
-
 function cleanPrice(v) {
-v = v.replace(/[^\d.,]/g, '').replace('.', ',');
-const i = v.indexOf(',');
-if (i !== -1) {
-v = v.slice(0, i + 1) + v.slice(i + 1).replace(/[.,]/g, '').slice(0, 2);
+  v = String(v).replace(/[^\d.,]/g, '').replace('.', ',');
+  const i = v.indexOf(',');
+  if (i !== -1) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/[.,]/g, '').slice(0, 2);
+  return v.slice(0, 10);
 }
-return v.slice(0, 10);
-}
-
 function fit(el, text, base, cap) {
-const n = text.length;
-el.style.fontSize = (n <= cap ? base : Math.max(8, Math.floor(base * cap / n))) + 'px';
+  const n = text.length;
+  el.style.fontSize = (n <= cap ? base : Math.max(8, Math.floor(base * cap / n))) + 'px';
+}
+const isum = (it) => { const p = parsePrice(it.price); return p === null ? 0 : rnd(p * it.qty); };
+const dTot = (d) => d.items.reduce((t, it) => ({ q: t.q + it.qty, s: t.s + isum(it) }), { q: 0, s: 0 });
+
+/* ---------- Данные: магазины → отделы → строки ---------- */
+let S;
+const newDept = (name) => ({ id: S.nid++, name, nextId: 1, items: [], history: [], undo: [] });
+const newShop = (name) => ({ id: S.nid++, name, depts: [newDept('Общий')] });
+
+function load() {
+  try {
+    const r = localStorage.getItem(KEY);
+    if (r) {
+      const s = JSON.parse(r);
+      if (s && Array.isArray(s.shops)) return s;
+    }
+  } catch (e) {}
+  S = { nid: 1, shops: [] };
+  const s1 = newShop('Магазин 1');
+  try { // перенос старых данных v2 в «Магазин 1» → «Общий»
+    const o = JSON.parse(localStorage.getItem(OLD));
+    if (o && Array.isArray(o.items)) {
+      const d = s1.depts[0];
+      d.nextId = o.nextId || 1;
+      d.items = o.items;
+      d.history = o.history || [];
+      d.undo = o.undoStack || [];
+    }
+  } catch (e) {}
+  S.shops.push(s1, newShop('Магазин 2'));
+  return S;
+}
+S = load();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { console.warn(e); } };
+save();
+
+/* ---------- Навигация ---------- */
+let view = { s: 'shops' };
+let edit = false, armed = null, drag = null, lastDrag = 0, endFn = null;
+const curShop = () => S.shops.find((x) => x.id === view.shop);
+const curList = () => (view.s === 'depts' ? curShop().depts : S.shops);
+
+function render() {
+  window.scrollTo(0, 0);
+  app.classList.remove('go'); void app.offsetWidth; app.classList.add('go');
+  if (view.s === 'counter') {
+    const sh = curShop();
+    const d = sh && sh.depts.find((x) => x.id === view.dept);
+    if (d) return counter(sh, d);
+    view = { s: 'shops' };
+  }
+  renderList();
 }
 
-function itemSum(it) {
-const p = parsePrice(it.price);
-return p === null ? 0 : Math.round(p * it.qty * 100) / 100;
+/* ---------- Списки (магазины / отделы) ---------- */
+function mkRow(x, shop) {
+  const r = document.createElement('div');
+  r.className = 'li'; r.dataset.id = x.id;
+  const n = document.createElement('div');
+  n.className = 'nm'; n.textContent = x.name; r.appendChild(n);
+  if (edit) {
+    const c = document.createElement('button');
+    c.className = 'circle'; c.dataset.id = x.id; c.textContent = '−'; c.setAttribute('aria-label', 'Удалить');
+    r.appendChild(c);
+  } else {
+    if (shop) {
+      const a = document.createElement('span');
+      a.className = 'am'; a.textContent = fmt(rnd(dTot(x).s)) + ' ₽'; r.appendChild(a);
+    }
+    const v = document.createElement('span');
+    v.className = 'chev'; v.textContent = '›'; r.appendChild(v);
+  }
+  return r;
 }
 
-function renderAdded(it) {
-const a = it.added;
-let text = '—';
-let cls = 'cell added';
-if (a !== null) {
-text = (a > 0 ? '+' : a < 0 ? '−' : '') + Math.abs(a);
-cls += a > 0 ? ' pos' : a < 0 ? ' neg' : '';
-}
-it.addedEl.className = cls;
-it.addedEl.textContent = text;
-fit(it.addedEl, text, 16, 4);
+function syncCircles() {
+  const l = $('#list');
+  if (!l) return;
+  l.querySelectorAll('.circle').forEach((b) => {
+    const on = +b.dataset.id === armed;
+    b.className = 'circle' + (on ? ' ok' : '');
+    b.textContent = on ? '✓' : '−';
+    b.setAttribute('aria-label', on ? 'Подтвердить удаление' : 'Удалить');
+  });
 }
 
-function renderSum(it) {
-const text = fmt(itemSum(it));
-it.sumEl.textContent = text;
-fit(it.sumEl, text, 15, 7);
+function startRename(row) {
+  const x = curList().find((o) => o.id === +row.dataset.id);
+  const n = row.querySelector('.nm');
+  if (!x || !n || n.querySelector('input')) return;
+  const inp = document.createElement('input');
+  inp.value = x.name; inp.maxLength = 40;
+  n.textContent = ''; n.appendChild(inp);
+  inp.focus(); inp.select();
+  inp.addEventListener('blur', () => {
+    const v = inp.value.trim();
+    if (v) x.name = v;
+    n.textContent = x.name;
+    save();
+  }, { once: true });
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') inp.blur(); });
 }
 
-function updateTotals() {
-let qty = 0;
-let sum = 0;
-items.forEach((it) => {
-qty += it.qty;
-sum += itemSum(it);
+function renderList() {
+  const shop = view.s === 'depts' ? curShop() : null;
+  if (view.s === 'depts' && !shop) view = { s: 'shops' };
+  const L = shop ? shop.depts : S.shops;
+  let sub = '';
+  if (shop) {
+    let q = 0, s = 0;
+    shop.depts.forEach((d) => { const t = dTot(d); q += t.q; s += t.s; });
+    sub = '<div class="sub">Общая сумма: ' + fmt(rnd(s)) + ' ₽ · ' + fmt(q) + ' шт.</div>';
+  }
+  app.innerHTML =
+    '<div class="bar"><div class="l">' +
+    (shop ? '<button class="ic" id="back" aria-label="Назад">‹</button>' : '') +
+    '<button class="ic" id="add" aria-label="Добавить">+</button></div>' +
+    '<button class="tx' + (edit ? ' done' : '') + '" id="edit">' + (edit ? 'Готово' : 'Изменить') + '</button></div>' +
+    '<h1>' + esc(shop ? shop.name : 'Магазины') + '</h1>' + sub +
+    '<div class="card list' + (edit ? ' editing' : '') + '" id="list"></div>';
+  const list = $('#list');
+  L.forEach((x) => list.appendChild(mkRow(x, shop)));
+
+  list.addEventListener('click', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    const r = e.target.closest('.li');
+    if (!r) return;
+    const id = +r.dataset.id;
+    if (e.target.closest('.circle')) {
+      if (armed === id) {
+        L.splice(L.findIndex((x) => x.id === id), 1);
+        armed = null; save(); renderList();
+      } else { armed = id; syncCircles(); }
+      return;
+    }
+    if (edit) {
+      if (Date.now() - lastDrag > 300) startRename(r);
+      return;
+    }
+    view = shop ? { s: 'counter', shop: shop.id, dept: id } : { s: 'depts', shop: id };
+    render();
+  });
+  list.addEventListener('pointerdown', (e) => {
+    if (!edit || e.target.closest('.circle') || e.target.tagName === 'INPUT') return;
+    const row = e.target.closest('.li');
+    if (row) drag = { row, y: e.clientY, moved: false, pid: e.pointerId };
+  });
+  $('#add').onclick = () => {
+    const x = shop ? newDept('Отдел ' + (L.length + 1)) : newShop('Магазин ' + (L.length + 1));
+    L.push(x); save(); renderList();
+    startRename($('#list').lastElementChild);
+  };
+  $('#edit').onclick = () => { edit = !edit; armed = null; renderList(); };
+  const back = $('#back');
+  if (back) back.onclick = () => { edit = false; armed = null; view = { s: 'shops' }; render(); };
+}
+
+/* Перетаскивание строк в режиме «Изменить» и сброс подтверждения удаления */
+document.addEventListener('pointerdown', (e) => {
+  if (armed !== null && !e.target.closest('.circle')) { armed = null; syncCircles(); }
 });
-totalQtyEl.textContent = fmt(qty) + ' шт.';
-totalSumEl.textContent = fmt(Math.round(sum * 100) / 100) + ' ₽';
-}
-
-function saveState() {
-try {
-const state = {
-nextId,
-items: items.map((it) => ({
-id: it.id, price: it.price, qty: it.qty, added: it.added
-})),
-history: Array.from(historyEl.children).map((li) => li.textContent),
-undoStack
+document.addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.pid) return;
+  if (!drag.moved) {
+    if (Math.abs(e.clientY - drag.y) < 6) return;
+    drag.moved = true; drag.row.classList.add('drag');
+  }
+  const row = drag.row, y = e.clientY;
+  const p = row.previousElementSibling, n = row.nextElementSibling;
+  if (p) { const b = p.getBoundingClientRect(); if (y < b.top + b.height / 2) row.parentNode.insertBefore(p, row.nextSibling); }
+  if (n) { const b = n.getBoundingClientRect(); if (y > b.top + b.height / 2) row.parentNode.insertBefore(n, row); }
+});
+const endDrag = (e) => {
+  if (!drag || e.pointerId !== drag.pid) return;
+  const d0 = drag; drag = null;
+  d0.row.classList.remove('drag');
+  if (d0.moved) {
+    lastDrag = Date.now();
+    const ids = Array.from(d0.row.parentNode.children).map((r) => +r.dataset.id);
+    curList().sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    save();
+  }
 };
-localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-} catch (err) {
-console.warn('Не удалось сохранить данные:', err);
-}
-}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
 
-function changed(it) {
-renderSum(it);
-updateTotals();
-saveState();
-}
+/* ---------- Счётчик отдела (прежняя программа) ---------- */
+['pointerup', 'pointercancel'].forEach((t) => window.addEventListener(t, (e) => endFn && endFn(e)));
+window.addEventListener('blur', () => endFn && endFn());
 
-function setQty(it, n) {
-it.qty = Math.min(MAX_QTY, Math.max(0, n));
-it.qInput.value = it.qty;
-changed(it);
-}
-
-function beginPress(it) {
-if (lastPressed !== it) {
-it.added = 0;
-lastPressed = it;
-renderAdded(it);
-saveState();
-}
-}
-
-function step(it, dir) {
-const before = it.qty;
-setQty(it, before + dir);
-const d = it.qty - before;
-if (d !== 0) {
-it.added += d;
-renderAdded(it);
-saveState();
-}
-}
-
-function updateUndoButton() {
-undoBtn.disabled = undoStack.length === 0;
-}
-
-function addLog(it, delta, previousQty) {
-if (!delta) return;
-const p = parsePrice(it.price);
-const priceText = p === null ? 'Цена не указана' : 'Цена ' + fmt(p) + ' ₽';
-const sign = delta > 0 ? '+' : '−';
-const li = document.createElement('li');
-li.textContent =
-'[' + timeStr() + '] ' + priceText + ': ' + sign + Math.abs(delta) +
-' шт. (Стало: ' + it.qty + ')';
-historyEl.insertBefore(li, historyEl.firstChild);
-undoStack.push({ itemId: it.id, previousQty });
-while (historyEl.children.length > MAX_LOG) {
-historyEl.removeChild(historyEl.lastChild);
-undoStack.shift();
-}
-updateUndoButton();
-saveState();
-}
-
-function undoLast() {
-const action = undoStack.pop();
-if (!action) return;
-const it = items.find((x) => x.id === action.itemId);
-if (it) {
-it.qty = Math.max(0, Math.min(MAX_QTY, action.previousQty));
-it.qInput.value = it.qty;
-it.added = null;
-renderAdded(it);
-changed(it);
-}
-if (historyEl.firstElementChild) historyEl.removeChild(historyEl.firstElementChild);
-updateUndoButton();
-saveState();
-}
-
-function compare(a, b) {
-const pa = parsePrice(a.price);
-const pb = parsePrice(b.price);
-if (pa === null && pb === null) return a.id - b.id;
-if (pa === null) return 1;
-if (pb === null) return -1;
-return (pa - pb) || (a.id - b.id);
-}
-
-function sortRows() {
-if (hold) return;
-const sorted = items.slice().sort(compare);
-if (sorted.every((it, i) => it === items[i])) return;
-items = sorted;
-sorted.forEach((it) => rowsEl.appendChild(it.row));
-saveState();
-}
-
-function maybeSort() {
-const a = document.activeElement;
-if (a && a.tagName === 'INPUT' && rowsEl.contains(a)) return;
-sortRows();
-}
-
-rowsEl.addEventListener('focusout', () => setTimeout(maybeSort, 0));
-
-function tick() {
-if (!hold) return;
-step(hold.it, hold.dir);
-hold.count++;
-const delay = hold.count > 30 ? 30 : hold.count > 12 ? 60 : 110;
-hold.timer = setTimeout(tick, delay);
-}
-
-function startHold(it, dir, e) {
-if (hold) return;
-if (e.pointerType === 'mouse' && e.button !== 0) return;
-hold = { it, dir, start: it.qty, count: 0, pointerId: e.pointerId, timer: null };
-beginPress(it);
-step(it, dir);
-hold.timer = setTimeout(tick, 400);
-}
-
-function endHold(e) {
-if (!hold) return;
-if (e && e.pointerId !== undefined && e.pointerId !== hold.pointerId) return;
-clearTimeout(hold.timer);
-const finished = hold;
-hold = null;
-const delta = finished.it.qty - finished.start;
-if (delta !== 0) addLog(finished.it, delta, finished.start);
-maybeSort();
-}
-
-window.addEventListener('pointerup', endHold);
-window.addEventListener('pointercancel', endHold);
-window.addEventListener('blur', () => endHold());
-
-const blurOnEnter = (e) => {
-if (e.key === 'Enter') {
-e.preventDefault();
-e.target.blur();
-}
-};
-
-function addRow(focus, saved) {
-const row = document.createElement('div');
-row.className = 'grid item';
-row.innerHTML =
-'<input class="price" type="text" inputmode="decimal" autocomplete="off" placeholder="Цена" aria-label="Цена, ₽">' +
-'<div class="qty">' +
-'<button type="button" class="step minus" aria-label="Уменьшить">−</button>' +
-'<input class="q" type="text" inputmode="numeric" autocomplete="off" value="0" aria-label="Количество">' +
-'</div>' +
-'<div class="cell added" aria-label="Добавил за серию">—</div>' +
-'<button type="button" class="step plus" aria-label="Увеличить">+</button>' +
-'<div class="cell sum" aria-label="Сумма, ₽">0</div>' +
-'<button type="button" class="step del" aria-label="Удалить строку">✕</button>';
-
-const it = {
-id: saved ? saved.id : nextId++,
-price: saved ? saved.price : '',
-qty: saved ? saved.qty : 0,
-added: saved ? saved.added : null,
-row,
-priceInput: row.querySelector('.price'),
-qInput: row.querySelector('.q'),
-addedEl: row.querySelector('.added'),
-sumEl: row.querySelector('.sum')
+const cmp = (a, b) => {
+  const pa = parsePrice(a.price), pb = parsePrice(b.price);
+  if (pa === null && pb === null) return a.id - b.id;
+  if (pa === null) return 1;
+  if (pb === null) return -1;
+  return (pa - pb) || (a.id - b.id);
 };
 
-it.priceInput.value = it.price;
-it.qInput.value = it.qty;
-renderAdded(it);
-renderSum(it);
+function counter(sh, d) {
+  app.innerHTML =
+    '<div class="bar"><div class="l"><button class="ic" id="back" aria-label="Назад">‹</button></div></div>' +
+    '<h1>' + esc(d.name) + '</h1><div class="sub">' + esc(sh.name) + '</div>' +
+    '<section class="card"><div class="grid head"><span>Цена, ₽</span><span>Количество</span><span>Добавил</span><span></span><span>Сумма, ₽</span><span></span></div>' +
+    '<div id="rows"></div><button type="button" id="addRow" class="add">+ Добавить строку</button></section>' +
+    '<section class="card total"><h2>Итого</h2>' +
+    '<div class="stat"><span>Общее количество вещей</span><b id="tq">0 шт.</b></div>' +
+    '<div class="stat"><span>Общая сумма</span><b id="ts">0 ₽</b></div></section>' +
+    '<section class="card hist"><div class="hh"><h2>История добавлений</h2>' +
+    '<button type="button" id="undo" class="undo" disabled>Отменить последнее</button></div><ul id="history" class="log"></ul></section>';
 
-it.priceInput.addEventListener('input', () => {
-const v = cleanPrice(it.priceInput.value);
-if (v !== it.priceInput.value) it.priceInput.value = v;
-it.price = v;
-changed(it);
-});
-it.priceInput.addEventListener('keydown', blurOnEnter);
+  const rowsEl = $('#rows'), histEl = $('#history'), tq = $('#tq'), ts = $('#ts'), undoBtn = $('#undo');
+  const R = new Map();
+  let hold = null, last = null;
 
-let qtyAtFocus = it.qty;
-it.qInput.addEventListener('focus', () => {
-qtyAtFocus = it.qty;
-if (it.qty === 0) it.qInput.value = '';
-});
-it.qInput.addEventListener('input', () => {
-const v = it.qInput.value.replace(/\D/g, '').slice(0, 6);
-if (v !== it.qInput.value) it.qInput.value = v;
-it.qty = Math.min(MAX_QTY, parseInt(v, 10) || 0);
-if (it.qty > MAX_QTY) it.qInput.value = it.qty;
-changed(it);
-});
-it.qInput.addEventListener('blur', () => {
-it.qInput.value = it.qty;
-const delta = it.qty - qtyAtFocus;
-if (delta !== 0) addLog(it, delta, qtyAtFocus);
-});
-it.qInput.addEventListener('keydown', blurOnEnter);
+  function rAdded(it) {
+    const r = R.get(it), a = it.added;
+    let t = '—', c = 'cell added';
+    if (a !== null) { t = (a > 0 ? '+' : a < 0 ? '−' : '') + Math.abs(a); c += a > 0 ? ' pos' : a < 0 ? ' neg' : ''; }
+    r.add.className = c; r.add.textContent = t; fit(r.add, t, 16, 4);
+  }
+  function rSum(it) {
+    const r = R.get(it), t = fmt(isum(it));
+    r.sum.textContent = t; fit(r.sum, t, 15, 7);
+  }
+  function totals() {
+    const t = dTot(d);
+    tq.textContent = fmt(t.q) + ' шт.';
+    ts.textContent = fmt(rnd(t.s)) + ' ₽';
+  }
+  const changed = (it) => { rSum(it); totals(); save(); };
+  function setQty(it, n) {
+    it.qty = Math.min(MAX_QTY, Math.max(0, n));
+    R.get(it).q.value = it.qty;
+    changed(it);
+  }
+  function beginPress(it) {
+    if (last !== it) { it.added = 0; last = it; rAdded(it); save(); }
+  }
+  function step(it, dir) {
+    const before = it.qty;
+    setQty(it, before + dir);
+    const delta = it.qty - before;
+    if (delta !== 0) { it.added += delta; rAdded(it); save(); }
+  }
 
-row.querySelector('.minus').addEventListener('pointerdown', (e) => startHold(it, -1, e));
-row.querySelector('.plus').addEventListener('pointerdown', (e) => startHold(it, 1, e));
-row.querySelectorAll('.minus, .plus').forEach((b) => {
-b.addEventListener('contextmenu', (e) => e.preventDefault());
-});
+  function renderHist() {
+    histEl.innerHTML = '';
+    d.history.forEach((h) => { const li = document.createElement('li'); li.textContent = h; histEl.appendChild(li); });
+    undoBtn.disabled = d.undo.length === 0;
+  }
+  function addLog(it, delta, prev) {
+    if (!delta) return;
+    const p = parsePrice(it.price);
+    const priceText = p === null ? 'Цена не указана' : 'Цена ' + fmt(p) + ' ₽';
+    d.history.unshift('[' + timeStr() + '] ' + priceText + ': ' + (delta > 0 ? '+' : '−') + Math.abs(delta) + ' шт. (Стало: ' + it.qty + ')');
+    d.undo.push({ itemId: it.id, previousQty: prev });
+    while (d.history.length > MAX_LOG) { d.history.pop(); d.undo.shift(); }
+    renderHist(); save();
+  }
+  function undoLast() {
+    const a = d.undo.pop();
+    if (!a) return;
+    const it = d.items.find((x) => x.id === a.itemId);
+    if (it) {
+      it.qty = Math.max(0, Math.min(MAX_QTY, a.previousQty));
+      R.get(it).q.value = it.qty;
+      it.added = null; rAdded(it); changed(it);
+    }
+    d.history.shift();
+    renderHist(); save();
+  }
 
-const delBtn = row.querySelector('.del');
-let deleteArmed = false;
-let deleteTimer = null;
-delBtn.addEventListener('click', () => {
-if (!deleteArmed) {
-deleteArmed = true;
-delBtn.classList.add('armed');
-delBtn.textContent = 'Да?';
-clearTimeout(deleteTimer);
-deleteTimer = setTimeout(() => {
-deleteArmed = false;
-delBtn.classList.remove('armed');
-delBtn.textContent = '✕';
-}, 2500);
-return;
+  function sortRows() {
+    if (hold) return;
+    const s = d.items.slice().sort(cmp);
+    if (s.every((it, i) => it === d.items[i])) return;
+    d.items.splice(0, d.items.length, ...s);
+    s.forEach((it) => rowsEl.appendChild(R.get(it).row));
+    save();
+  }
+  function maybeSort() {
+    const a = document.activeElement;
+    if (a && a.tagName === 'INPUT' && rowsEl.contains(a)) return;
+    sortRows();
+  }
+  rowsEl.addEventListener('focusout', () => setTimeout(maybeSort, 0));
+
+  function tick() {
+    if (!hold) return;
+    step(hold.it, hold.dir);
+    hold.count++;
+    hold.timer = setTimeout(tick, hold.count > 30 ? 30 : hold.count > 12 ? 60 : 110);
+  }
+  function startHold(it, dir, e) {
+    if (hold) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    hold = { it, dir, start: it.qty, count: 0, pointerId: e.pointerId, timer: null };
+    beginPress(it);
+    step(it, dir);
+    hold.timer = setTimeout(tick, 400);
+  }
+  function endHold(e) {
+    if (!hold) return;
+    if (e && e.pointerId !== undefined && e.pointerId !== hold.pointerId) return;
+    clearTimeout(hold.timer);
+    const f = hold; hold = null;
+    const delta = f.it.qty - f.start;
+    if (delta !== 0) addLog(f.it, delta, f.start);
+    maybeSort();
+  }
+  endFn = endHold;
+
+  const blurOnEnter = (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
+
+  function mk(it) {
+    const row = document.createElement('div');
+    row.className = 'grid item';
+    row.innerHTML =
+      '<input class="price" type="text" inputmode="decimal" autocomplete="off" placeholder="Цена" aria-label="Цена, ₽">' +
+      '<div class="qty"><button type="button" class="step minus" aria-label="Уменьшить">−</button>' +
+      '<input class="q" type="text" inputmode="numeric" autocomplete="off" value="0" aria-label="Количество"></div>' +
+      '<div class="cell added" aria-label="Добавил за серию">—</div>' +
+      '<button type="button" class="step plus" aria-label="Увеличить">+</button>' +
+      '<div class="cell sum" aria-label="Сумма, ₽">0</div>' +
+      '<button type="button" class="step del" aria-label="Удалить строку">✕</button>';
+    const r = { row, p: row.querySelector('.price'), q: row.querySelector('.q'), add: row.querySelector('.added'), sum: row.querySelector('.sum') };
+    R.set(it, r);
+    r.p.value = it.price; r.q.value = it.qty;
+    rAdded(it); rSum(it);
+
+    r.p.addEventListener('input', () => {
+      const v = cleanPrice(r.p.value);
+      if (v !== r.p.value) r.p.value = v;
+      it.price = v; changed(it);
+    });
+    r.p.addEventListener('keydown', blurOnEnter);
+
+    let qtyAtFocus = it.qty;
+    r.q.addEventListener('focus', () => { qtyAtFocus = it.qty; if (it.qty === 0) r.q.value = ''; });
+    r.q.addEventListener('input', () => {
+      const v = r.q.value.replace(/\D/g, '').slice(0, 6);
+      if (v !== r.q.value) r.q.value = v;
+      it.qty = Math.min(MAX_QTY, parseInt(v, 10) || 0);
+      changed(it);
+    });
+    r.q.addEventListener('blur', () => {
+      r.q.value = it.qty;
+      const delta = it.qty - qtyAtFocus;
+      if (delta !== 0) addLog(it, delta, qtyAtFocus);
+    });
+    r.q.addEventListener('keydown', blurOnEnter);
+
+    row.querySelector('.minus').addEventListener('pointerdown', (e) => startHold(it, -1, e));
+    row.querySelector('.plus').addEventListener('pointerdown', (e) => startHold(it, 1, e));
+    row.querySelectorAll('.minus, .plus').forEach((b) => b.addEventListener('contextmenu', (e) => e.preventDefault()));
+
+    const delBtn = row.querySelector('.del');
+    let armedDel = false, delTimer = null;
+    delBtn.addEventListener('click', () => {
+      if (!armedDel) {
+        armedDel = true; delBtn.classList.add('armed'); delBtn.textContent = 'Да?';
+        clearTimeout(delTimer);
+        delTimer = setTimeout(() => { armedDel = false; delBtn.classList.remove('armed'); delBtn.textContent = '✕'; }, 2500);
+        return;
+      }
+      clearTimeout(delTimer);
+      if (hold && hold.it === it) endHold();
+      if (last === it) last = null;
+      d.items.splice(d.items.indexOf(it), 1);
+      R.delete(it); row.remove();
+      totals(); save();
+    });
+    rowsEl.appendChild(row);
+  }
+
+  d.items.sort(cmp);
+  d.items.forEach(mk);
+  renderHist(); totals();
+
+  $('#addRow').onclick = () => {
+    const it = { id: d.nextId++, price: '', qty: 0, added: null };
+    d.items.push(it); mk(it); totals(); save();
+    R.get(it).p.focus();
+  };
+  undoBtn.onclick = undoLast;
+  $('#back').onclick = () => {
+    endHold(); endFn = null;
+    view = { s: 'depts', shop: sh.id };
+    render();
+  };
 }
-clearTimeout(deleteTimer);
-items = items.filter((x) => x !== it);
-if (lastPressed === it) lastPressed = null;
-if (hold && hold.it === it) endHold();
-row.remove();
-updateTotals();
-saveState();
-});
 
-items.push(it);
-rowsEl.appendChild(row);
-updateTotals();
-if (focus) it.priceInput.focus();
-}
-
-function restoreState() {
-try {
-const raw = localStorage.getItem(STORAGE_KEY);
-if (!raw) return false;
-const state = JSON.parse(raw);
-if (!state || !Array.isArray(state.items)) return false;
-nextId = Number.isInteger(state.nextId) && state.nextId > 0 ? state.nextId : 1;
-undoStack = Array.isArray(state.undoStack) ? state.undoStack : [];
-state.items.forEach((saved) => {
-if (!saved || !Number.isInteger(saved.id)) return;
-const qty = Math.max(0, Math.min(MAX_QTY, Number(saved.qty) || 0));
-addRow(false, {
-id: saved.id,
-price: cleanPrice(String(saved.price || '')),
-qty,
-added: Number.isFinite(saved.added) ? saved.added : null
-});
-});
-if (Array.isArray(state.history)) {
-state.history.slice(0, MAX_LOG).forEach((entry) => {
-const li = document.createElement('li');
-li.textContent = String(entry);
-historyEl.appendChild(li);
-});
-}
-updateUndoButton();
-return items.length > 0 || historyEl.children.length > 0;
-} catch (err) {
-console.warn('Не удалось восстановить данные:', err);
-return false;
-}
-}
-
-document.getElementById('addRow').addEventListener('click', () => {
-addRow(true);
-saveState();
-});
-undoBtn.addEventListener('click', undoLast);
-
-if (!restoreState()) addRow(false);
-updateTotals();
-saveState();
+render();
 })();
 </script>
 </body>
